@@ -1,0 +1,18 @@
+{
+  "name": "namepot",
+  "version": "1.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "scripts": {
+    "dev": "pnpm --filter @namepot/app dev",
+    "build": "pnpm --filter @namepot/contracts build && pnpm --filter @namepot/app build",
+    "test": "pnpm --filter @namepot/contracts test",
+    "contracts:build": "pnpm --filter @namepot/contracts build",
+    "contracts:test": "pnpm --filter @namepot/contracts test",
+    "contracts:deploy": "pnpm --filter @namepot/contracts deploy",
+    "contracts:verify": "pnpm --filter @namepot/contracts verify",
+    "app:dev": "pnpm --filter @namepot/app dev",
+    "app:build": "pnpm --filter @namepot/app build",
+    "app:start": "pnpm --filter @namepot/app start"
+  }
+}
