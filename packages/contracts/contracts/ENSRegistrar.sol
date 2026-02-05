@@ -28,21 +28,20 @@ contract ENSRegistrar is IENSRegistrar {
     }
 
     function issueSubnodeRecord(
-        bytes32 node,
         string calldata label,
         address target,
         address owner,
         string[] calldata keys,
         string[] calldata values
-    ) external {
+    ) external returns (bytes32 node) {
         require(target != address(0) && owner != address(0), "Invalid address");
         require(
             keys.length == values.length,
             "Metadata length doesn't matched"
         );
 
-        bytes32 finalNode = nameWrapper.setSubnodeRecord(
-            node != 0x0 ? node : rootNode,
+        node = nameWrapper.setSubnodeRecord(
+            rootNode,
             label,
             address(this),
             address(resolver),
@@ -67,8 +66,8 @@ contract ENSRegistrar is IENSRegistrar {
             0
         );
 
-        nodes[keccak256(bytes(label))] = finalNode;
+        nodes[keccak256(bytes(label))] = node;
 
-        emit SubnodeRecordIssued(label, finalNode, target, owner);
+        emit SubnodeRecordIssued(label, node, target, owner);
     }
 }

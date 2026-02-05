@@ -40,7 +40,7 @@ contract Pot is Initializable {
         address _token
     ) public initializer {
         require(_goal != 0, "Invalid goal");
-        require(_deadline < block.timestamp, "Invalid deadline");
+        require(_deadline > block.timestamp, "Invalid deadline");
         require(_recipient != address(0), "Invalid recipient");
 
         goal = _goal;
@@ -104,7 +104,7 @@ contract Pot is Initializable {
         require(block.timestamp >= deadline, "Too early");
         require(token.balanceOf(address(this)) >= goal, "Goal not reached");
 
-        uint256 approvalsRate = (numApprovals / memberCount) * 1000;
+        uint256 approvalsRate = (uint256(numApprovals) * 1000) / memberCount;
         require(approvalsRate >= quorum, "Quorum not reached");
 
         token.safeTransfer(recipient, goal);
@@ -117,7 +117,7 @@ contract Pot is Initializable {
         require(amount != 0, "Invalid amount");
 
         uint256 balance = token.balanceOf(address(this));
-        require(balance > amount, "Insufficient balance");
+        require(balance >= amount, "Insufficient balance");
         require(memberDeposit[msg.sender] >= amount, "Insufficient balance");
 
         memberDeposit[msg.sender] -= amount;

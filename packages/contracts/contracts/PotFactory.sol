@@ -49,7 +49,6 @@ contract PotFactory {
         );
 
         REGISTRAR.issueSubnodeRecord(
-            0x0,
             label,
             potAddress,
             msg.sender,
@@ -88,7 +87,7 @@ contract PotFactory {
         values = new string[](4);
 
         keys[0] = "pot:version";
-        values[1] = "1";
+        values[0] = "1";
 
         keys[1] = "pot:goal";
         values[1] = Strings.toString(goal);
