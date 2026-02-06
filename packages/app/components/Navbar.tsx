@@ -8,6 +8,7 @@ import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import Avatar from "@mui/material/Avatar";
+import { truncateAddress } from "@/lib/utils";
 import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
 import LogoutIcon from "@mui/icons-material/Logout";
 import Link from "next/link";
@@ -22,10 +23,6 @@ import {
 import { injected } from "wagmi/connectors";
 
 import logo from "@/assets/pot.png";
-
-function truncateAddress(address: string) {
-  return `${address.slice(0, 6)}...${address.slice(-4)}`;
-}
 
 export default function Navbar() {
   const { address, isConnected } = useConnection();

@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { useEnsAddress } from "wagmi";
+import { truncateAddress } from "@/lib/utils";
 
 import Container from "@mui/material/Container";
 import Box from "@mui/material/Box";
@@ -39,11 +41,6 @@ function formatCountdown(seconds: number): string {
   return parts.join(" ");
 }
 
-function truncateAddress(addr: string): string {
-  if (addr.length <= 10) return addr;
-  return `${addr.slice(0, 6)}...${addr.slice(-4)}`;
-}
-
 function DetailItem({ label, value }: { label: string; value: string }) {
   return (
     <Box>
@@ -59,6 +56,12 @@ function DetailItem({ label, value }: { label: string; value: string }) {
 
 export default function PotPage() {
   const { id } = useParams<{ id: string }>();
+  const rootDomain = String(process.env.NEXT_PUBLIC_ROOT_DOMAIN);
+  const ensName = id?.endsWith(rootDomain) ? id : `${id}.${rootDomain}`;
+  const { data: potAddress } = useEnsAddress({
+    name: ensName,
+    chainId: parseInt(String(process.env.NEXT_PUBLIC_DEFAULT_CHAIN_ID)),
+  });
 
   const pot = MOCK_POT;
   const { isMember, isManager } = MOCK_STATE;
@@ -75,6 +78,41 @@ export default function PotPage() {
       clearInterval(interval);
     };
   }, []);
+
+  if (!potAddress) {
+    return (
+      <Container maxWidth="md" sx={{ py: 4 }}>
+        <Button
+          component={Link}
+          href="/"
+          startIcon={<ArrowBackIcon />}
+          sx={{ mb: 3, color: "text.secondary" }}
+        >
+          Back
+        </Button>
+        <Card>
+          <CardContent
+            sx={{
+              p: { xs: 3, sm: 4 },
+              textAlign: "center",
+            }}
+          >
+            <Typography variant="h5" gutterBottom>
+              Pot Not Found
+            </Typography>
+            <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+              The pot <strong>{ensName}</strong> could not be resolved to a
+              contract address. It may not exist or hasn&apos;t been registered
+              yet.
+            </Typography>
+            <Button component={Link} href="/" variant="contained">
+              Go Home
+            </Button>
+          </CardContent>
+        </Card>
+      </Container>
+    );
+  }
 
   const timeLeft = pot.deadline - now;
   const isBeforeDeadline = timeLeft > 0;
@@ -102,7 +140,7 @@ export default function PotPage() {
           flexWrap: "wrap",
         }}
       >
-        <Typography variant="h4">{pot.label}.namepot.eth</Typography>
+        <Typography variant="h4">{ensName}</Typography>
         <Chip
           label={isBeforeDeadline ? "Active" : "Deadline Passed"}
           color={isBeforeDeadline ? "success" : "warning"}
@@ -115,7 +153,7 @@ export default function PotPage() {
         color="text.secondary"
         sx={{ mb: 3, display: "block" }}
       >
-        Pot #{id}
+        Contract Address: {potAddress}
       </Typography>
 
       <Card sx={{ mb: 3 }}>
