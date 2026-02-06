@@ -3,6 +3,9 @@
 import { useForm, Controller } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import Link from "next/link";
+import { useConnection, useWriteContract } from "wagmi";
+import { Address, encodePacked, keccak256, parseUnits } from "viem";
+import { enqueueSnackbar } from "notistack";
 import Container from "@mui/material/Container";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
@@ -19,6 +22,7 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 
 import { createPotSchema } from "@/lib/schemas";
 import type { CreatePotFormData } from "@/lib/types";
+import { POT_FACTORY } from "@/lib/abis";
 
 const QUORUM_OPTIONS = [
   { value: 500, label: "50%" },
@@ -31,6 +35,7 @@ export default function CreatePotPage() {
     register,
     handleSubmit,
     control,
+    reset,
     formState: { errors, isValid },
   } = useForm<CreatePotFormData>({
     resolver: yupResolver(createPotSchema),
@@ -40,13 +45,57 @@ export default function CreatePotPage() {
       deadline: "",
       recipient: "",
       goal: "",
-      tokenAddress: "",
+      tokenAddress: process.env.NEXT_PUBLIC_CURRENCY_TOKEN,
     },
     mode: "onTouched",
   });
 
-  const onSubmit = (data: CreatePotFormData) => {
-    console.log("Create pot:", data);
+  const { address } = useConnection();
+  const { mutateAsync, isPending } = useWriteContract();
+
+  const onSubmit = async (data: CreatePotFormData) => {
+    try {
+      if (!address) {
+        throw new Error("Address is undefined");
+      }
+      if (!process.env.NEXT_PUBLIC_POT_FACTORY_ADDRESS) {
+        throw new Error("Factory is undefined");
+      }
+
+      const { label, goal, deadline, quorum, recipient } = data;
+      const hash = keccak256(encodePacked(["string"], [label]));
+      const deadlineUnix = BigInt(
+        Math.floor(new Date(deadline).getTime() / 1000),
+      );
+
+      await mutateAsync({
+        address: process.env.NEXT_PUBLIC_POT_FACTORY_ADDRESS as Address,
+        abi: POT_FACTORY,
+        functionName: "createPot",
+        args: [
+          hash,
+          label,
+          parseUnits(goal, 18),
+          deadlineUnix,
+          quorum,
+          address as Address,
+          recipient as Address,
+        ],
+      });
+
+      reset();
+      enqueueSnackbar({
+        message: "Successfully created pot!",
+        variant: "success",
+        anchorOrigin: { vertical: "top", horizontal: "right" },
+      });
+    } catch (error: unknown) {
+      enqueueSnackbar({
+        message: `Error creating pot: ${error}`,
+        variant: "error",
+        anchorOrigin: { vertical: "top", horizontal: "right" },
+      });
+    }
   };
 
   return (
@@ -164,6 +213,8 @@ export default function CreatePotPage() {
               <div>
                 <FormLabel required>Token Address</FormLabel>
                 <TextField
+                  disabled
+                  aria-readonly
                   fullWidth
                   placeholder="0x..."
                   {...register("tokenAddress")}
@@ -178,7 +229,8 @@ export default function CreatePotPage() {
                 type="submit"
                 variant="contained"
                 size="large"
-                disabled={!isValid}
+                disabled={!isValid || isPending}
+                loading={isPending}
                 fullWidth
                 sx={{
                   mt: 1,
