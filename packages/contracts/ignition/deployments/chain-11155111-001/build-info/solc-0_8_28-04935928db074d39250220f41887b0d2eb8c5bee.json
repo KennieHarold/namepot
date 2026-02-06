@@ -1,0 +1,48 @@
+{
+  "_format": "hh3-sol-build-info-1",
+  "id": "solc-0_8_28-04935928db074d39250220f41887b0d2eb8c5bee",
+  "solcVersion": "0.8.28",
+  "solcLongVersion": "0.8.28+commit.7893614a",
+  "userSourceNameMap": {
+    "contracts/ENSRegistrar.sol": "project/contracts/ENSRegistrar.sol"
+  },
+  "input": {
+    "language": "Solidity",
+    "settings": {
+      "evmVersion": "cancun",
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "outputSelection": {
+        "*": {
+          "": [
+            "ast"
+          ],
+          "*": [
+            "abi",
+            "evm.bytecode",
+            "evm.deployedBytecode",
+            "evm.methodIdentifiers",
+            "metadata"
+          ]
+        }
+      },
+      "remappings": []
+    },
+    "sources": {
+      "project/contracts/ENSRegistrar.sol": {
+        "content": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.28;\n\nimport \"./interfaces/IENSRegistrar.sol\";\nimport \"./interfaces/INameWrapper.sol\";\nimport \"./interfaces/IResolver.sol\";\n\ncontract ENSRegistrar is IENSRegistrar {\n    INameWrapper public immutable nameWrapper;\n    IResolver public immutable resolver;\n\n    // namehash(\"namepot.eth\")\n    bytes32 public immutable rootNode;\n\n    mapping(bytes32 => bytes32) public nodes;\n\n    event SubnodeRecordIssued(\n        string label,\n        bytes32 node,\n        address target,\n        address finalOwner\n    );\n\n    constructor(address _nameWrapper, address _resolver, bytes32 _rootNode) {\n        nameWrapper = INameWrapper(_nameWrapper);\n        resolver = IResolver(_resolver);\n        rootNode = _rootNode;\n    }\n\n    function issueSubnodeRecord(\n        string calldata label,\n        address target,\n        address owner,\n        string[] calldata keys,\n        string[] calldata values\n    ) external returns (bytes32 node) {\n        require(target != address(0) && owner != address(0), \"Invalid address\");\n        require(\n            keys.length == values.length,\n            \"Metadata length doesn't matched\"\n        );\n\n        node = nameWrapper.setSubnodeRecord(\n            rootNode,\n            label,\n            address(this),\n            address(resolver),\n            0,\n            0,\n            0\n        );\n\n        resolver.setAddr(node, target);\n\n        for (uint8 i = 0; i < keys.length; i++) {\n            resolver.setText(node, keys[i], values[i]);\n        }\n\n        nameWrapper.setSubnodeRecord(\n            rootNode,\n            label,\n            owner,\n            address(resolver),\n            0,\n            0,\n            0\n        );\n\n        nodes[keccak256(bytes(label))] = node;\n\n        emit SubnodeRecordIssued(label, node, target, owner);\n    }\n}\n"
+      },
+      "project/contracts/interfaces/IENSRegistrar.sol": {
+        "content": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.28;\n\ninterface IENSRegistrar {\n    function issueSubnodeRecord(\n        string calldata label,\n        address target,\n        address owner,\n        string[] calldata keys,\n        string[] calldata values\n    ) external returns (bytes32 node);\n}\n"
+      },
+      "project/contracts/interfaces/INameWrapper.sol": {
+        "content": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.28;\n\ninterface INameWrapper {\n    function setSubnodeRecord(\n        bytes32 parentNode,\n        string calldata label,\n        address owner,\n        address resolver,\n        uint64 ttl,\n        uint32 fuses,\n        uint64 expiry\n    ) external returns (bytes32);\n}\n"
+      },
+      "project/contracts/interfaces/IResolver.sol": {
+        "content": "// SPDX-License-Identifier: UNLICENSED\npragma solidity ^0.8.28;\n\ninterface IResolver {\n    function setAddr(bytes32 node, address a) external;\n    function setText(\n        bytes32 node,\n        string calldata key,\n        string calldata value\n    ) external;\n}\n"
+      }
+    }
+  }
+}

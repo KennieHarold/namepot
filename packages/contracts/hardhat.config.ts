@@ -35,6 +35,7 @@ export default defineConfig({
       chainType: "l1",
       url: configVariable("SEPOLIA_INFURA_API_URL"),
       accounts: [configVariable("SEPOLIA_PRIVATE_KEY")],
+      chainId: 11155111,
     },
   },
   verify: {
