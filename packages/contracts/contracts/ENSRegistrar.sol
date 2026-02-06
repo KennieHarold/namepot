@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.28;
 
+import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 import "./interfaces/IENSRegistrar.sol";
 import "./interfaces/INameWrapper.sol";
 import "./interfaces/IResolver.sol";
 
-contract ENSRegistrar is IENSRegistrar {
+contract ENSRegistrar is IENSRegistrar, ERC1155Holder {
     INameWrapper public immutable nameWrapper;
     IResolver public immutable resolver;
 

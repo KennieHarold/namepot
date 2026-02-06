@@ -1,0 +1,6 @@
+{
+  "NamepotModule#ENSRegistrar": "0xD5Df649d84031180f62D4f7f8C57044cA34ACAc1",
+  "NamepotModule#PotImplementation": "0x12437975F69DfD5bc44b8d52dCc195Ab8ABAC22D",
+  "NamepotModule#PotBeacon": "0x6598e378207848D290ab7b2580c8212294C86B9A",
+  "NamepotModule#PotFactory": "0x7d83a33A7a0EDd9ccC42673F0F4D1dD194F53805"
+}
