@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Container from "@mui/material/Container";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
@@ -11,6 +13,14 @@ import AddIcon from "@mui/icons-material/Add";
 import Link from "next/link";
 
 export default function Home() {
+  const [search, setSearch] = useState("");
+  const router = useRouter();
+
+  const handleSearch = () => {
+    const label = search.trim();
+    if (!label) return;
+    router.push(`/pot/${label}`);
+  };
   return (
     <Container maxWidth="md">
       <Box
@@ -37,6 +47,11 @@ export default function Home() {
           fullWidth
           placeholder="Search pots by ENS name (e.g., sports-car.namepot.eth)"
           variant="outlined"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleSearch();
+          }}
           slotProps={{
             input: {
               startAdornment: (

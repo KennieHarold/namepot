@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useEnsAddress } from "wagmi";
-import { truncateAddress } from "@/lib/utils";
+import { usePotDetails } from "@/hooks/usePotDetails";
+import { formatUnits } from "viem";
 
 import Container from "@mui/material/Container";
 import Box from "@mui/material/Box";
@@ -14,8 +15,11 @@ import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import LinearProgress from "@mui/material/LinearProgress";
 import Chip from "@mui/material/Chip";
+import CircularProgress from "@mui/material/CircularProgress";
 import Divider from "@mui/material/Divider";
 import Stack from "@mui/material/Stack";
+import Tab from "@mui/material/Tab";
+import Tabs from "@mui/material/Tabs";
 import TextField from "@mui/material/TextField";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
@@ -24,22 +28,7 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
 import BoltIcon from "@mui/icons-material/Bolt";
 import CallMadeIcon from "@mui/icons-material/CallMade";
-import { MOCK_POT, MOCK_STATE } from "@/lib/mock";
-
-function formatCountdown(seconds: number): string {
-  if (seconds <= 0) return "Expired";
-  const d = Math.floor(seconds / 86400);
-  const h = Math.floor((seconds % 86400) / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-
-  const parts: string[] = [];
-  if (d > 0) parts.push(`${d}d`);
-  if (h > 0) parts.push(`${h}h`);
-  if (m > 0) parts.push(`${m}m`);
-  parts.push(`${s}s`);
-  return parts.join(" ");
-}
+import { formatCountdown, truncateAddress } from "@/lib/utils";
 
 function DetailItem({ label, value }: { label: string; value: string }) {
   return (
@@ -58,16 +47,30 @@ export default function PotPage() {
   const { id } = useParams<{ id: string }>();
   const rootDomain = String(process.env.NEXT_PUBLIC_ROOT_DOMAIN);
   const ensName = id?.endsWith(rootDomain) ? id : `${id}.${rootDomain}`;
-  const { data: potAddress } = useEnsAddress({
+  const { data: potAddress, isLoading: isPotAddressLoading } = useEnsAddress({
     name: ensName,
     chainId: parseInt(String(process.env.NEXT_PUBLIC_DEFAULT_CHAIN_ID)),
   });
 
-  const pot = MOCK_POT;
-  const { isMember, isManager } = MOCK_STATE;
+  const {
+    goal,
+    deadline,
+    quorum,
+    approvals,
+    totalDeposit,
+    memberCount,
+    recipient,
+    managerAddress,
+    isManager,
+    isLoading: isDetailsLoading,
+  } = usePotDetails(ensName, potAddress ?? undefined);
+  const isMember = true; // TODO
 
   const [now, setNow] = useState(0);
   const [newMemberAddress, setNewMemberAddress] = useState("");
+  const [activeTab, setActiveTab] = useState(0);
+  const [depositAmount, setDepositAmount] = useState("");
+  const [withdrawAmount, setWithdrawAmount] = useState("");
 
   useEffect(() => {
     const update = () => setNow(Math.floor(Date.now() / 1000));
@@ -78,6 +81,14 @@ export default function PotPage() {
       clearInterval(interval);
     };
   }, []);
+
+  if (isPotAddressLoading) {
+    return (
+      <Container maxWidth="md" sx={{ py: 4, textAlign: "center" }}>
+        <CircularProgress />
+      </Container>
+    );
+  }
 
   if (!potAddress) {
     return (
@@ -114,11 +125,12 @@ export default function PotPage() {
     );
   }
 
-  const timeLeft = pot.deadline - now;
+  const goalNum = Number(formatUnits(goal || BigInt(0), 18));
+  const raisedNum = Number(formatUnits(totalDeposit || BigInt(0), 18));
+  const timeLeft = (deadline ?? 0) - now;
   const isBeforeDeadline = timeLeft > 0;
-  const progress =
-    pot.goal > 0 ? Math.min((pot.raised / pot.goal) * 100, 100) : 0;
-  const quorumLabel = `${pot.quorum / 10}%`;
+  const progress = goalNum > 0 ? Math.min((raisedNum / goalNum) * 100, 100) : 0;
+  const quorumLabel = `${(quorum ?? 0) / 10}%`;
 
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
@@ -187,8 +199,7 @@ export default function PotPage() {
                 Progress
               </Typography>
               <Typography variant="body2" fontWeight={600}>
-                {pot.raised.toLocaleString()} / {pot.goal.toLocaleString()}{" "}
-                tokens
+                {raisedNum.toLocaleString()} / {goalNum.toLocaleString()} tokens
               </Typography>
             </Box>
             <LinearProgress
@@ -224,47 +235,34 @@ export default function PotPage() {
             }}
           >
             <DetailItem label="Quorum" value={quorumLabel} />
-            <DetailItem label="Members" value={String(pot.members.length)} />
-            <DetailItem label="Approvals" value={String(pot.numApprovals)} />
+            <DetailItem label="Members" value={String(memberCount ?? 0)} />
+            <DetailItem label="Approvals" value={String(approvals ?? 0)} />
             <DetailItem
               label="Recipient"
-              value={truncateAddress(pot.recipient)}
+              value={truncateAddress(recipient || "")}
             />
             <DetailItem
               label="Token"
-              value={truncateAddress(pot.tokenAddress)}
+              value={truncateAddress(
+                process.env.NEXT_PUBLIC_CURRENCY_TOKEN || "",
+              )}
             />
-            <DetailItem label="Manager" value={truncateAddress(pot.manager)} />
+            <DetailItem
+              label="Manager"
+              value={truncateAddress(managerAddress || "")}
+            />
           </Box>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-          <Typography variant="h6" gutterBottom>
-            Actions
-          </Typography>
+      {isManager && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+            <Typography variant="h6" gutterBottom>
+              Manage Members
+            </Typography>
 
-          <Stack spacing={2}>
-            {isMember && isBeforeDeadline && (
-              <Button
-                variant="contained"
-                startIcon={<AccountBalanceWalletIcon />}
-                onClick={() => console.log("Deposit stub")}
-                sx={{
-                  background:
-                    "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
-                  "&:hover": {
-                    background:
-                      "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
-                  },
-                }}
-              >
-                Deposit
-              </Button>
-            )}
-
-            {isManager && (
+            <Stack spacing={2}>
               <Box sx={{ display: "flex", gap: 1 }}>
                 <TextField
                   size="small"
@@ -284,46 +282,112 @@ export default function PotPage() {
                   Add Member
                 </Button>
               </Box>
+            </Stack>
+          </CardContent>
+        </Card>
+      )}
+
+      {isMember && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+            <Typography variant="h6" gutterBottom>
+              Deposit / Withdraw
+            </Typography>
+
+            <Tabs
+              value={activeTab}
+              onChange={(_, v) => setActiveTab(v)}
+              sx={{ mb: 2 }}
+            >
+              {isBeforeDeadline && <Tab label="Deposit" />}
+              <Tab label="Withdraw" />
+            </Tabs>
+
+            {/* Deposit Tab */}
+            {isBeforeDeadline && activeTab === 0 && (
+              <Stack spacing={2}>
+                <TextField
+                  size="small"
+                  type="number"
+                  placeholder="Amount to deposit"
+                  value={depositAmount}
+                  onChange={(e) => setDepositAmount(e.target.value)}
+                  slotProps={{ htmlInput: { min: 0, step: "any" } }}
+                  fullWidth
+                />
+                <Button
+                  variant="contained"
+                  startIcon={<AccountBalanceWalletIcon />}
+                  onClick={() => console.log("Deposit stub:", depositAmount)}
+                  disabled={!depositAmount || Number(depositAmount) <= 0}
+                  sx={{
+                    background:
+                      "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+                    "&:hover": {
+                      background:
+                        "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
+                    },
+                  }}
+                >
+                  Deposit
+                </Button>
+              </Stack>
             )}
 
-            {isMember && (
-              <Button
-                variant="outlined"
-                color="warning"
-                startIcon={<CallMadeIcon />}
-                onClick={() => console.log("Withdraw stub")}
-              >
-                Withdraw
-              </Button>
+            {/* Withdraw Tab */}
+            {((isBeforeDeadline && activeTab === 1) ||
+              (!isBeforeDeadline && activeTab === 0)) && (
+              <Stack spacing={2}>
+                <TextField
+                  size="small"
+                  type="number"
+                  placeholder="Amount to withdraw"
+                  value={withdrawAmount}
+                  onChange={(e) => setWithdrawAmount(e.target.value)}
+                  slotProps={{ htmlInput: { min: 0, step: "any" } }}
+                  fullWidth
+                />
+                <Button
+                  variant="outlined"
+                  color="warning"
+                  startIcon={<CallMadeIcon />}
+                  onClick={() => console.log("Withdraw stub:", withdrawAmount)}
+                  disabled={!withdrawAmount || Number(withdrawAmount) <= 0}
+                >
+                  Withdraw
+                </Button>
+              </Stack>
             )}
+          </CardContent>
+        </Card>
+      )}
 
-            {isMember && !isBeforeDeadline && (
+      {!isBeforeDeadline && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+            <Typography variant="h6" gutterBottom>
+              Governance
+            </Typography>
+
+            <Stack direction="row" spacing={2}>
+              {isMember && (
+                <Button
+                  variant="contained"
+                  color="success"
+                  startIcon={<CheckCircleIcon />}
+                  onClick={() => console.log("Approve stub")}
+                  fullWidth
+                >
+                  Approve
+                </Button>
+              )}
+
               <Button
                 variant="contained"
-                color="success"
-                startIcon={<CheckCircleIcon />}
-                onClick={() => console.log("Approve stub")}
-              >
-                Approve
-              </Button>
-            )}
-
-            {isManager && (
-              <Button
-                variant="outlined"
-                color="error"
-                startIcon={<CancelIcon />}
-                onClick={() => console.log("Close pot stub")}
-              >
-                Close Pot
-              </Button>
-            )}
-
-            {!isBeforeDeadline && (
-              <Button
-                variant="contained"
+                disabled={!isManager}
                 startIcon={<BoltIcon />}
                 onClick={() => console.log("Execute stub")}
+                fullWidth
                 sx={{
                   bgcolor: "#10b981",
                   "&:hover": { bgcolor: "#059669" },
@@ -331,30 +395,71 @@ export default function PotPage() {
               >
                 Execute
               </Button>
-            )}
-          </Stack>
-        </CardContent>
-      </Card>
+            </Stack>
+          </CardContent>
+        </Card>
+      )}
 
-      <Box sx={{ mt: 3, display: "flex", gap: 1, flexWrap: "wrap" }}>
+      {isManager && (
+        <Card sx={{ mb: 3, border: 1, borderColor: "error.light" }}>
+          <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+            <Typography variant="h6" color="error" gutterBottom>
+              Danger Zone
+            </Typography>
+            <Button
+              fullWidth
+              variant="contained"
+              startIcon={<CancelIcon />}
+              onClick={() => console.log("Close pot stub")}
+              sx={{
+                bgcolor: "error.main",
+                "&:hover": { bgcolor: "error.dark" },
+              }}
+            >
+              Close Pot
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      <Box
+        sx={{
+          mt: 10,
+          display: "flex",
+          gap: 1,
+          flexWrap: "wrap",
+          alignItems: "center",
+        }}
+      >
         <Typography variant="caption" color="text.secondary">
-          Demo roles:
+          Your role:
         </Typography>
-        {isMember && (
-          <Chip
-            label="Member"
-            size="small"
-            color="primary"
-            variant="outlined"
-          />
-        )}
-        {isManager && (
-          <Chip
-            label="Manager"
-            size="small"
-            color="secondary"
-            variant="outlined"
-          />
+        {isDetailsLoading ? (
+          <CircularProgress size={16} />
+        ) : (
+          <>
+            {isMember && !isManager && (
+              <Chip
+                label="Member"
+                size="small"
+                color="primary"
+                variant="outlined"
+              />
+            )}
+            {isManager && (
+              <Chip
+                label="Manager"
+                size="small"
+                color="secondary"
+                variant="outlined"
+              />
+            )}
+            {!isMember && !isManager && (
+              <Typography variant="caption" color="text.secondary">
+                Viewer (no role)
+              </Typography>
+            )}
+          </>
         )}
       </Box>
     </Container>
