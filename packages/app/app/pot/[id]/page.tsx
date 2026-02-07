@@ -93,7 +93,8 @@ export default function PotPage() {
     managerAddress,
     isManager,
     isLoading: isDetailsLoading,
-  } = usePotDetails(ensName);
+    status,
+  } = usePotDetails(ensName, potAddress ?? undefined);
   const { allowance, refetchAllowance } = useAllowance(potAddress ?? undefined);
   const { data: members = [], isLoading: isMembersLoading } = usePotMembers(
     ensName,
@@ -401,8 +402,16 @@ export default function PotPage() {
       >
         <Typography variant="h4">{ensName}</Typography>
         <Chip
-          label={isBeforeDeadline ? "Active" : "Deadline Passed"}
-          color={isBeforeDeadline ? "success" : "warning"}
+          label={status}
+          color={
+            status === "Active"
+              ? "success"
+              : status === "Approving"
+                ? "warning"
+                : status === "Executed"
+                  ? "info"
+                  : "default"
+          }
           size="small"
         />
       </Box>
@@ -425,11 +434,7 @@ export default function PotPage() {
             <Typography variant="body2" color="text.secondary" gutterBottom>
               {isBeforeDeadline ? "Time Remaining" : "Deadline"}
             </Typography>
-            <Typography
-              variant="h5"
-              fontWeight={700}
-              color={isBeforeDeadline ? "primary" : "warning.main"}
-            >
+            <Typography variant="h5" fontWeight={700} color="primary">
               {formatCountdown(timeLeft)}
             </Typography>
           </Box>
