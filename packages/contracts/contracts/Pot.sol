@@ -135,7 +135,6 @@ contract Pot is IPot, Initializable, ERC1155Holder {
     }
 
     function claimPayment(bytes calldata signature) external onlyActivePot {
-        require(msg.sender == recipient, "Not recipient");
         require(!executed, "Already executed");
         require(block.timestamp >= deadline, "Too early");
         require(token.balanceOf(address(this)) >= goal, "Goal not reached");
@@ -144,7 +143,7 @@ contract Pot is IPot, Initializable, ERC1155Holder {
             ? recipient
             : msg.sender;
 
-        require(finalRecipient == msg.sender, "Invalid recipient");
+        require(finalRecipient == msg.sender, "Not recipient");
 
         uint256 approvalsRate = (uint256(numApprovals) * 1000) / memberCount;
         require(approvalsRate >= quorum, "Quorum not reached");

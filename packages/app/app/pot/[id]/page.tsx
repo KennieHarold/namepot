@@ -8,15 +8,32 @@ import {
   useWriteContract,
   useConnection,
   useWaitForTransactionReceipt,
+  useSignMessage,
 } from "wagmi";
 import { usePotDetails } from "@/hooks/usePotDetails";
 import { usePotMembers } from "@/hooks/usePotMembers";
 import { useAllowance } from "@/hooks/useAllowance";
-import { Address, erc20Abi, formatUnits, isAddress, parseUnits } from "viem";
+import {
+  Address,
+  erc20Abi,
+  encodePacked,
+  formatUnits,
+  isAddress,
+  keccak256,
+  parseUnits,
+} from "viem";
 import { enqueueSnackbar } from "notistack";
+import { QRCodeSVG } from "qrcode.react";
 import { POT } from "@/lib/abis";
 
 import Container from "@mui/material/Container";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import DialogActions from "@mui/material/DialogActions";
+import IconButton from "@mui/material/IconButton";
+import CloseIcon from "@mui/icons-material/Close";
+import QrCode2Icon from "@mui/icons-material/QrCode2";
 import Box from "@mui/material/Box";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
@@ -40,7 +57,6 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
 import CancelIcon from "@mui/icons-material/Cancel";
-import BoltIcon from "@mui/icons-material/Bolt";
 import CallMadeIcon from "@mui/icons-material/CallMade";
 import { formatCountdown, truncateAddress } from "@/lib/utils";
 
@@ -235,11 +251,61 @@ export default function PotPage() {
     }
   };
 
+  const { mutateAsync: signMessageAsync, isPending: isSigning } =
+    useSignMessage();
+
   const [now, setNow] = useState(0);
   const [newMemberAddress, setNewMemberAddress] = useState("");
   const [activeTab, setActiveTab] = useState(0);
   const [depositAmount, setDepositAmount] = useState("");
   const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [qrRecipient, setQrRecipient] = useState("");
+  const [paymentLink, setPaymentLink] = useState<string | null>(null);
+
+  const handleOpenQrModal = () => {
+    setQrRecipient(recipient || "");
+    setPaymentLink(null);
+    setQrModalOpen(true);
+  };
+
+  const handleGeneratePaymentQr = async () => {
+    try {
+      if (!potAddress) {
+        throw new Error("Pot address not found");
+      }
+      if (!isAddress(qrRecipient)) {
+        enqueueSnackbar({
+          message: "Invalid recipient address",
+          variant: "error",
+          anchorOrigin: { vertical: "top", horizontal: "right" },
+        });
+        return;
+      }
+      if (!goal) {
+        throw new Error("Goal not found");
+      }
+
+      const messageHash = keccak256(
+        encodePacked(
+          ["address", "address", "uint256"],
+          [potAddress as Address, qrRecipient as Address, goal],
+        ),
+      );
+
+      const signature = await signMessageAsync({
+        message: { raw: messageHash },
+      });
+
+      setPaymentLink(`/payment/${signature}?pot=${potAddress}&amount=${goal}`);
+    } catch (error: unknown) {
+      enqueueSnackbar({
+        message: `Error generating payment QR: ${error}`,
+        variant: "error",
+        anchorOrigin: { vertical: "top", horizontal: "right" },
+      });
+    }
+  };
 
   useEffect(() => {
     const update = () => setNow(Math.floor(Date.now() / 1000));
@@ -679,15 +745,15 @@ export default function PotPage() {
               <Button
                 variant="contained"
                 disabled={!isManager}
-                startIcon={<BoltIcon />}
-                onClick={() => console.log("Execute stub")}
+                startIcon={<QrCode2Icon />}
+                onClick={handleOpenQrModal}
                 fullWidth
                 sx={{
                   bgcolor: "#10b981",
                   "&:hover": { bgcolor: "#059669" },
                 }}
               >
-                Execute
+                Generate Payment QR Code
               </Button>
             </Stack>
           </CardContent>
@@ -756,6 +822,87 @@ export default function PotPage() {
           </>
         )}
       </Box>
+
+      <Dialog
+        open={qrModalOpen}
+        onClose={() => setQrModalOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          Generate Payment QR Code
+          <IconButton onClick={() => setQrModalOpen(false)} size="small">
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={3} sx={{ mt: 1 }}>
+            <TextField
+              label="Recipient Address"
+              size="small"
+              placeholder="0x... recipient address"
+              value={qrRecipient}
+              onChange={(e) => {
+                setQrRecipient(e.target.value);
+                setPaymentLink(null);
+              }}
+              fullWidth
+            />
+
+            {paymentLink && (
+              <Box
+                sx={{
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  gap: 2,
+                  p: 2,
+                  bgcolor: "grey.50",
+                  borderRadius: 2,
+                }}
+              >
+                <QRCodeSVG
+                  value={`${window.location.origin}${paymentLink}`}
+                  size={200}
+                />
+                <Typography
+                  variant="caption"
+                  color="text.secondary"
+                  sx={{ wordBreak: "break-all", textAlign: "center" }}
+                >
+                  {`${window.location.origin}${paymentLink}`}
+                </Typography>
+              </Box>
+            )}
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setQrModalOpen(false)} color="inherit">
+            Close
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<QrCode2Icon />}
+            onClick={handleGeneratePaymentQr}
+            disabled={!qrRecipient || isSigning}
+            loading={isSigning}
+            sx={{
+              background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+              "&:hover": {
+                background: "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
+              },
+            }}
+          >
+            Sign & Generate QR
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }
