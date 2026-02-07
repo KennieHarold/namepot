@@ -4,7 +4,13 @@ import { useForm, Controller } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import Link from "next/link";
 import { useConnection, useWriteContract } from "wagmi";
-import { Address, encodePacked, keccak256, parseUnits } from "viem";
+import {
+  Address,
+  encodePacked,
+  keccak256,
+  parseUnits,
+  zeroAddress,
+} from "viem";
 import { enqueueSnackbar } from "notistack";
 import Container from "@mui/material/Container";
 import Box from "@mui/material/Box";
@@ -21,8 +27,8 @@ import Stack from "@mui/material/Stack";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 
 import { createPotSchema } from "@/lib/schemas";
-import type { CreatePotFormData } from "@/lib/types";
 import { POT_FACTORY } from "@/lib/abis";
+import { CreatePotFormData } from "@/lib/types";
 
 const QUORUM_OPTIONS = [
   { value: 500, label: "50%" },
@@ -37,7 +43,7 @@ export default function CreatePotPage() {
     control,
     reset,
     formState: { errors, isValid },
-  } = useForm<CreatePotFormData>({
+  } = useForm({
     resolver: yupResolver(createPotSchema),
     defaultValues: {
       label: "",
@@ -79,7 +85,7 @@ export default function CreatePotPage() {
           deadlineUnix,
           quorum,
           address as Address,
-          recipient as Address,
+          (recipient || zeroAddress) as Address,
         ],
       });
 
@@ -207,6 +213,7 @@ export default function CreatePotPage() {
                   size="small"
                   sx={{ mt: 0.5 }}
                   slotProps={{ htmlInput: { min: 0, step: "any" } }}
+                  onWheel={(e) => (e.target as HTMLInputElement).blur()}
                 />
               </div>
 

@@ -13,7 +13,7 @@ export const POT_FACTORY = [
       },
       {
         internalType: "address",
-        name: "token",
+        name: "_token",
         type: "address",
       },
     ],
@@ -47,6 +47,22 @@ export const POT_FACTORY = [
     type: "error",
   },
   {
+    inputs: [
+      {
+        internalType: "uint256",
+        name: "value",
+        type: "uint256",
+      },
+      {
+        internalType: "uint256",
+        name: "length",
+        type: "uint256",
+      },
+    ],
+    name: "StringsInsufficientHexLength",
+    type: "error",
+  },
+  {
     anonymous: false,
     inputs: [
       {
@@ -68,32 +84,6 @@ export const POT_FACTORY = [
   {
     inputs: [],
     name: "POT_BEACON",
-    outputs: [
-      {
-        internalType: "address",
-        name: "",
-        type: "address",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "REGISTRAR",
-    outputs: [
-      {
-        internalType: "contract IENSRegistrar",
-        name: "",
-        type: "address",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "TOKEN",
     outputs: [
       {
         internalType: "address",
@@ -147,9 +137,62 @@ export const POT_FACTORY = [
     stateMutability: "nonpayable",
     type: "function",
   },
+  {
+    inputs: [],
+    name: "registrar",
+    outputs: [
+      {
+        internalType: "contract IENSRegistrar",
+        name: "",
+        type: "address",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "token",
+    outputs: [
+      {
+        internalType: "address",
+        name: "",
+        type: "address",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
 ] as const;
 
 export const POT = [
+  {
+    inputs: [],
+    name: "ECDSAInvalidSignature",
+    type: "error",
+  },
+  {
+    inputs: [
+      {
+        internalType: "uint256",
+        name: "length",
+        type: "uint256",
+      },
+    ],
+    name: "ECDSAInvalidSignatureLength",
+    type: "error",
+  },
+  {
+    inputs: [
+      {
+        internalType: "bytes32",
+        name: "s",
+        type: "bytes32",
+      },
+    ],
+    name: "ECDSAInvalidSignatureS",
+    type: "error",
+  },
   {
     inputs: [],
     name: "InvalidInitialization",
@@ -172,6 +215,22 @@ export const POT = [
     type: "error",
   },
   {
+    inputs: [
+      {
+        internalType: "uint256",
+        name: "value",
+        type: "uint256",
+      },
+      {
+        internalType: "uint256",
+        name: "length",
+        type: "uint256",
+      },
+    ],
+    name: "StringsInsufficientHexLength",
+    type: "error",
+  },
+  {
     anonymous: false,
     inputs: [
       {
@@ -182,12 +241,6 @@ export const POT = [
       },
     ],
     name: "Approved",
-    type: "event",
-  },
-  {
-    anonymous: false,
-    inputs: [],
-    name: "Executed",
     type: "event",
   },
   {
@@ -214,6 +267,12 @@ export const POT = [
       },
     ],
     name: "MemberAdded",
+    type: "event",
+  },
+  {
+    anonymous: false,
+    inputs: [],
+    name: "PaymentClaimed",
     type: "event",
   },
   {
@@ -281,6 +340,19 @@ export const POT = [
     type: "function",
   },
   {
+    inputs: [
+      {
+        internalType: "bytes",
+        name: "signature",
+        type: "bytes",
+      },
+    ],
+    name: "claimPayment",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
     inputs: [],
     name: "closePot",
     outputs: [],
@@ -315,9 +387,15 @@ export const POT = [
   },
   {
     inputs: [],
-    name: "execute",
-    outputs: [],
-    stateMutability: "nonpayable",
+    name: "executed",
+    outputs: [
+      {
+        internalType: "bool",
+        name: "",
+        type: "bool",
+      },
+    ],
+    stateMutability: "view",
     type: "function",
   },
   {
@@ -335,6 +413,16 @@ export const POT = [
   },
   {
     inputs: [
+      {
+        internalType: "bytes32",
+        name: "_node",
+        type: "bytes32",
+      },
+      {
+        internalType: "address",
+        name: "_resolver",
+        type: "address",
+      },
       {
         internalType: "uint256",
         name: "_goal",
@@ -399,6 +487,19 @@ export const POT = [
   },
   {
     inputs: [],
+    name: "node",
+    outputs: [
+      {
+        internalType: "bytes32",
+        name: "",
+        type: "bytes32",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
     name: "numApprovals",
     outputs: [
       {
@@ -438,12 +539,38 @@ export const POT = [
   },
   {
     inputs: [],
+    name: "resolver",
+    outputs: [
+      {
+        internalType: "contract IResolver",
+        name: "",
+        type: "address",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
     name: "token",
     outputs: [
       {
         internalType: "contract IERC20",
         name: "",
         type: "address",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "totalDeposit",
+    outputs: [
+      {
+        internalType: "uint256",
+        name: "",
+        type: "uint256",
       },
     ],
     stateMutability: "view",

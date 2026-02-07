@@ -3,9 +3,8 @@ import { isAddress } from "viem";
 
 const ethereumAddress = yup
   .string()
-  .required("This field is required")
   .test("is-address", "Must be a valid Ethereum address", (value) =>
-    isAddress(value ?? ""),
+    value ? isAddress(value) : true,
   );
 
 export const createPotSchema = yup.object({
@@ -21,7 +20,7 @@ export const createPotSchema = yup.object({
       if (!value) return false;
       return new Date(value).getTime() > Date.now();
     }),
-  recipient: ethereumAddress.label("Recipient address"),
+  recipient: ethereumAddress.label("Recipient address").optional(),
   goal: yup
     .string()
     .required("Goal is required")

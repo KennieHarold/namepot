@@ -17,7 +17,7 @@ export interface CreatePotFormData {
   label: string;
   quorum: number;
   deadline: string;
-  recipient: string;
+  recipient?: string;
   goal: string;
   tokenAddress: string;
 }

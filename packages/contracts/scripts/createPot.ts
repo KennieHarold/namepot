@@ -1,8 +1,8 @@
 import { network } from "hardhat";
-import { encodePacked, keccak256, parseUnits } from "viem";
+import { encodePacked, keccak256, parseUnits, zeroAddress } from "viem";
 
-const POT_FACTORY_ADDRESS = "0x7d83a33A7a0EDd9ccC42673F0F4D1dD194F53805";
-const RECIPIENT = "0x7f70b3Df525E2A62b8678Fc3dA7eF4841ed08262";
+const POT_FACTORY_ADDRESS = "0x245D88d88b16c04AEb2052e6f6125C688C7ddBCe";
+const RECIPIENT = zeroAddress;
 
 const { viem } = await network.connect({
   network: "sepolia",
@@ -14,9 +14,9 @@ const publicClient = await viem.getPublicClient();
 
 const factory = await viem.getContractAt("PotFactory", POT_FACTORY_ADDRESS);
 
-const label = "sports-car";
+const label = "test-zero-address";
 const hash = keccak256(encodePacked(["string"], [label]));
-const goal = parseUnits("100", 18);
+const goal = parseUnits("25", 18);
 const deadline = BigInt(Math.floor(Date.now() / 1000) + 60 * 30); // 30 minutes from now
 const quorum = 500; // 50%
 const manager = walletClient.account.address;

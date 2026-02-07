@@ -53,7 +53,7 @@ contract PotFactory {
         bytes32 node = registrar.issueSubnodeRecord(
             label,
             potAddress,
-            msg.sender,
+            potAddress,
             keys,
             values
         );

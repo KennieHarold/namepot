@@ -188,6 +188,13 @@ contract Pot is IPot, Initializable {
         emit PotClosed();
     }
 
+    function setTextRecord(
+        string memory key,
+        string memory value
+    ) external onlyManager {
+        _setTextRecord(key, value);
+    }
+
     function _setTextRecord(string memory key, string memory value) internal {
         resolver.setText(node, key, value);
     }
