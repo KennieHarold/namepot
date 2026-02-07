@@ -70,7 +70,7 @@ export default function PotPage() {
     managerAddress,
     isManager,
     isLoading: isDetailsLoading,
-  } = usePotDetails(ensName, potAddress ?? undefined);
+  } = usePotDetails(ensName);
   const { allowance, refetchAllowance } = useAllowance(potAddress ?? undefined);
   const isMember = true; // TODO
 
