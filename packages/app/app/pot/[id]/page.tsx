@@ -115,6 +115,10 @@ export default function PotPage() {
     useWriteContract();
   const { mutateAsync: approvePotAsync, isPending: isApprovingPot } =
     useWriteContract();
+  const { mutateAsync: withdrawAsync, isPending: isWithdrawing } =
+    useWriteContract();
+  const { mutateAsync: closePotAsync, isPending: isClosingPot } =
+    useWriteContract();
 
   const { isSuccess: isApprovalSuccess, isPending: isWaitingApproval } =
     useWaitForTransactionReceipt({
@@ -246,6 +250,67 @@ export default function PotPage() {
     } catch (error: unknown) {
       enqueueSnackbar({
         message: `Error depositing: ${error}`,
+        variant: "error",
+        anchorOrigin: { vertical: "top", horizontal: "right" },
+      });
+    }
+  };
+
+  const handleWithdraw = async () => {
+    try {
+      if (!address) {
+        throw new Error("Wallet not connected");
+      }
+      if (!potAddress) {
+        throw new Error("Pot address not found");
+      }
+
+      const amount = parseUnits(withdrawAmount, 18);
+      await withdrawAsync({
+        address: potAddress as Address,
+        abi: POT,
+        functionName: "withdraw",
+        args: [amount],
+      });
+
+      setWithdrawAmount("");
+      enqueueSnackbar({
+        message: "Withdrawal successful!",
+        variant: "success",
+        anchorOrigin: { vertical: "top", horizontal: "right" },
+      });
+    } catch (error: unknown) {
+      enqueueSnackbar({
+        message: `Error withdrawing: ${error}`,
+        variant: "error",
+        anchorOrigin: { vertical: "top", horizontal: "right" },
+      });
+    }
+  };
+
+  const handleClosePot = async () => {
+    try {
+      if (!address) {
+        throw new Error("Wallet not connected");
+      }
+      if (!potAddress) {
+        throw new Error("Pot address not found");
+      }
+
+      await closePotAsync({
+        address: potAddress as Address,
+        abi: POT,
+        functionName: "closePot",
+      });
+
+      enqueueSnackbar({
+        message: "Pot closed successfully!",
+        variant: "success",
+        anchorOrigin: { vertical: "top", horizontal: "right" },
+      });
+    } catch (error: unknown) {
+      enqueueSnackbar({
+        message: `Error closing pot: ${error}`,
         variant: "error",
         anchorOrigin: { vertical: "top", horizontal: "right" },
       });
@@ -674,8 +739,13 @@ export default function PotPage() {
                   variant="outlined"
                   color="warning"
                   startIcon={<CallMadeIcon />}
-                  onClick={() => console.log("Withdraw stub:", withdrawAmount)}
-                  disabled={!withdrawAmount || Number(withdrawAmount) <= 0}
+                  onClick={handleWithdraw}
+                  disabled={
+                    !withdrawAmount ||
+                    Number(withdrawAmount) <= 0 ||
+                    isWithdrawing
+                  }
+                  loading={isWithdrawing}
                 >
                   Withdraw
                 </Button>
@@ -775,7 +845,9 @@ export default function PotPage() {
               fullWidth
               variant="contained"
               startIcon={<CancelIcon />}
-              onClick={() => console.log("Close pot stub")}
+              onClick={handleClosePot}
+              disabled={isClosingPot}
+              loading={isClosingPot}
               sx={{
                 bgcolor: "error.main",
                 "&:hover": { bgcolor: "error.dark" },
