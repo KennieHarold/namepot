@@ -1,9 +1,15 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import Link from "next/link";
-import { useConnection, useWriteContract } from "wagmi";
+import { useRouter } from "next/navigation";
+import {
+  useConnection,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from "wagmi";
 import {
   Address,
   encodePacked,
@@ -41,7 +47,6 @@ export default function CreatePotPage() {
     register,
     handleSubmit,
     control,
-    reset,
     formState: { errors, isValid },
   } = useForm({
     resolver: yupResolver(createPotSchema),
@@ -56,8 +61,12 @@ export default function CreatePotPage() {
     mode: "onTouched",
   });
 
+  const router = useRouter();
   const { address } = useConnection();
-  const { mutateAsync, isPending } = useWriteContract();
+  const { mutateAsync, isPending, data } = useWriteContract();
+  const { isSuccess, isLoading } = useWaitForTransactionReceipt({ hash: data });
+
+  const [redirectDomain, setRedirectDomain] = useState("");
 
   const onSubmit = async (data: CreatePotFormData) => {
     try {
@@ -74,6 +83,8 @@ export default function CreatePotPage() {
         Math.floor(new Date(deadline).getTime() / 1000),
       );
 
+      setRedirectDomain(label);
+
       await mutateAsync({
         address: process.env.NEXT_PUBLIC_POT_FACTORY_ADDRESS as Address,
         abi: POT_FACTORY,
@@ -88,13 +99,6 @@ export default function CreatePotPage() {
           (recipient || zeroAddress) as Address,
         ],
       });
-
-      reset();
-      enqueueSnackbar({
-        message: "Successfully created pot!",
-        variant: "success",
-        anchorOrigin: { vertical: "top", horizontal: "right" },
-      });
     } catch (error: unknown) {
       enqueueSnackbar({
         message: `Error creating pot: ${error}`,
@@ -103,6 +107,17 @@ export default function CreatePotPage() {
       });
     }
   };
+
+  useEffect(() => {
+    if (isSuccess) {
+      enqueueSnackbar({
+        message: "Successfully created pot!",
+        variant: "success",
+        anchorOrigin: { vertical: "top", horizontal: "right" },
+      });
+      router.push(`/pot/${redirectDomain}`);
+    }
+  }, [isSuccess, router, redirectDomain]);
 
   return (
     <Container maxWidth="sm" sx={{ py: 4 }}>
@@ -189,7 +204,7 @@ export default function CreatePotPage() {
               </div>
 
               <div>
-                <FormLabel required>Recipient Address</FormLabel>
+                <FormLabel>Recipient Address</FormLabel>
                 <TextField
                   fullWidth
                   placeholder="0x..."
@@ -236,8 +251,8 @@ export default function CreatePotPage() {
                 type="submit"
                 variant="contained"
                 size="large"
-                disabled={!isValid || isPending}
-                loading={isPending}
+                disabled={!isValid || isPending || isLoading}
+                loading={isPending || isLoading}
                 fullWidth
                 sx={{
                   mt: 1,

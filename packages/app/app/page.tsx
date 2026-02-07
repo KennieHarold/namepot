@@ -18,7 +18,9 @@ export default function Home() {
 
   const handleSearch = () => {
     const label = search.trim();
-    if (!label) return;
+    if (!label) {
+      return;
+    }
     router.push(`/pot/${label}`);
   };
   return (
@@ -50,7 +52,9 @@ export default function Home() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") handleSearch();
+            if (e.key === "Enter") {
+              handleSearch();
+            }
           }}
           slotProps={{
             input: {
@@ -85,11 +89,9 @@ export default function Home() {
             px: 4,
             py: 1.5,
             fontSize: "1rem",
-            background:
-              "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+            background: "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
             "&:hover": {
-              background:
-                "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
+              background: "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
             },
           }}
         >
