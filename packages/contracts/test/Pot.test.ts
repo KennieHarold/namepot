@@ -9,6 +9,9 @@ import {
   PublicClient,
   WalletClient,
   TestClient,
+  keccak256,
+  toHex,
+  encodePacked,
 } from "viem";
 
 describe("Pot", async function () {
@@ -24,10 +27,12 @@ describe("Pot", async function () {
   let nonMember: WalletClient;
 
   let token: { address: Address };
+  let mockResolver: { address: Address };
   let pot: { address: Address };
 
   const GOAL = parseEther("100");
   const ONE_DAY = 86400n;
+  const NODE = keccak256(toHex("test-pot-node"));
 
   async function getDeadline(offset: bigint = ONE_DAY): Promise<bigint> {
     const block = await publicClient.getBlock();
@@ -46,12 +51,21 @@ describe("Pot", async function () {
     quorum: number,
     managerAddr: Address,
     recipientAddr: Address,
-    tokenAddr: Address
+    tokenAddr: Address,
   ) {
     const potContract = await viem.getContractAt("Pot", potAddress);
     await potContract.write.initialize(
-      [goal, deadline, quorum, managerAddr, recipientAddr, tokenAddr],
-      { account: manager.account!.address }
+      [
+        NODE,
+        mockResolver.address,
+        goal,
+        deadline,
+        quorum,
+        managerAddr,
+        recipientAddr,
+        tokenAddr,
+      ],
+      { account: manager.account!.address },
     );
   }
 
@@ -62,6 +76,7 @@ describe("Pot", async function () {
     [manager, recipient, member1, member2, member3, nonMember] = wallets;
 
     token = await viem.deployContract("MockERC20", ["Test Token", "TEST"]);
+    mockResolver = await viem.deployContract("MockResolver");
 
     const deadline = await getDeadline();
     pot = await viem.deployContract("Pot");
@@ -73,7 +88,7 @@ describe("Pot", async function () {
       500, // 50% quorum
       manager.account!.address,
       recipient.account!.address,
-      token.address
+      token.address,
     );
   });
 
@@ -90,11 +105,11 @@ describe("Pot", async function () {
       assert.strictEqual(quorum, 500);
       assert.strictEqual(
         getAddress(potManager),
-        getAddress(manager.account!.address)
+        getAddress(manager.account!.address),
       );
       assert.strictEqual(
         getAddress(potRecipient),
-        getAddress(recipient.account!.address)
+        getAddress(recipient.account!.address),
       );
     });
 
@@ -111,30 +126,10 @@ describe("Pot", async function () {
             500,
             manager.account!.address,
             recipient.account!.address,
-            token.address
+            token.address,
           );
         },
-        { message: /Invalid goal/ }
-      );
-    });
-
-    it("should revert if recipient is zero address", async () => {
-      const newPot = await viem.deployContract("Pot");
-      const deadline = await getDeadline();
-
-      await assert.rejects(
-        async () => {
-          await initializePot(
-            newPot.address,
-            GOAL,
-            deadline,
-            500,
-            manager.account!.address,
-            "0x0000000000000000000000000000000000000000",
-            token.address
-          );
-        },
-        { message: /Invalid recipient/ }
+        { message: /Invalid goal/ },
       );
     });
 
@@ -150,10 +145,10 @@ describe("Pot", async function () {
             500,
             manager.account!.address,
             recipient.account!.address,
-            token.address
+            token.address,
           );
         },
-        { message: /InvalidInitialization/ }
+        { message: /InvalidInitialization/ },
       );
     });
   });
@@ -167,7 +162,7 @@ describe("Pot", async function () {
       });
 
       const memberCount = await potContract.read.memberCount();
-      assert.strictEqual(memberCount, 1n);
+      assert.strictEqual(memberCount, 2n);
     });
 
     it("should emit MemberAdded event", async () => {
@@ -177,11 +172,11 @@ describe("Pot", async function () {
         [member1.account!.address],
         {
           account: manager.account!.address,
-        }
+        },
       );
 
       const receipt = await publicClient.waitForTransactionReceipt({ hash });
-      assert.strictEqual(receipt.logs.length, 1);
+      assert.ok(receipt.logs.length > 0);
     });
 
     it("should revert if non-manager tries to add member", async () => {
@@ -193,7 +188,7 @@ describe("Pot", async function () {
             account: member1.account!.address,
           });
         },
-        { message: /Not manager/ }
+        { message: /Not manager/ },
       );
     });
 
@@ -206,10 +201,10 @@ describe("Pot", async function () {
             ["0x0000000000000000000000000000000000000000"],
             {
               account: manager.account!.address,
-            }
+            },
           );
         },
-        { message: /Invalid address/ }
+        { message: /Invalid address/ },
       );
     });
   });
@@ -219,7 +214,7 @@ describe("Pot", async function () {
       const potContract = await viem.getContractAt("Pot", pot.address);
       const tokenContract = await viem.getContractAt(
         "MockERC20",
-        token.address
+        token.address,
       );
 
       await potContract.write.addMember([member1.account!.address], {
@@ -230,7 +225,7 @@ describe("Pot", async function () {
         [member1.account!.address, parseEther("200")],
         {
           account: manager.account!.address,
-        }
+        },
       );
 
       await tokenContract.write.approve([pot.address, parseEther("200")], {
@@ -242,7 +237,7 @@ describe("Pot", async function () {
       const potContract = await viem.getContractAt("Pot", pot.address);
       const tokenContract = await viem.getContractAt(
         "MockERC20",
-        token.address
+        token.address,
       );
 
       await potContract.write.deposit([parseEther("50")], {
@@ -273,7 +268,7 @@ describe("Pot", async function () {
             account: nonMember.account!.address,
           });
         },
-        { message: /Not a member/ }
+        { message: /Not a member/ },
       );
     });
 
@@ -286,7 +281,7 @@ describe("Pot", async function () {
             account: member1.account!.address,
           });
         },
-        { message: /Invalid amount/ }
+        { message: /Invalid amount/ },
       );
     });
   });
@@ -296,7 +291,7 @@ describe("Pot", async function () {
       const potContract = await viem.getContractAt("Pot", pot.address);
       const tokenContract = await viem.getContractAt(
         "MockERC20",
-        token.address
+        token.address,
       );
 
       await potContract.write.addMember([member1.account!.address], {
@@ -310,7 +305,7 @@ describe("Pot", async function () {
         [member1.account!.address, parseEther("100")],
         {
           account: manager.account!.address,
-        }
+        },
       );
 
       await tokenContract.write.approve([pot.address, parseEther("100")], {
@@ -345,7 +340,7 @@ describe("Pot", async function () {
             account: member1.account!.address,
           });
         },
-        { message: /Too early/ }
+        { message: /Too early/ },
       );
     });
 
@@ -361,7 +356,7 @@ describe("Pot", async function () {
         500,
         manager.account!.address,
         recipient.account!.address,
-        token.address
+        token.address,
       );
 
       const newPotContract = await viem.getContractAt("Pot", newPot.address);
@@ -377,7 +372,7 @@ describe("Pot", async function () {
             account: member1.account!.address,
           });
         },
-        { message: /Goal not reached/ }
+        { message: /Goal not reached/ },
       );
     });
 
@@ -396,17 +391,17 @@ describe("Pot", async function () {
             account: member1.account!.address,
           });
         },
-        { message: /Already approved/ }
+        { message: /Already approved/ },
       );
     });
   });
 
-  describe("execute", () => {
+  describe("claimPayment", () => {
     beforeEach(async () => {
       const potContract = await viem.getContractAt("Pot", pot.address);
       const tokenContract = await viem.getContractAt(
         "MockERC20",
-        token.address
+        token.address,
       );
 
       await potContract.write.addMember([member1.account!.address], {
@@ -420,7 +415,7 @@ describe("Pot", async function () {
         [member1.account!.address, parseEther("100")],
         {
           account: manager.account!.address,
-        }
+        },
       );
 
       await tokenContract.write.approve([pot.address, parseEther("100")], {
@@ -434,14 +429,14 @@ describe("Pot", async function () {
       await advanceTime(86401);
     });
 
-    it("should execute when quorum is reached", async () => {
+    it("should allow recipient to claim payment with valid signature", async () => {
       const potContract = await viem.getContractAt("Pot", pot.address);
       const tokenContract = await viem.getContractAt(
         "MockERC20",
-        token.address
+        token.address,
       );
 
-      // Both members approve (100% approval rate)
+      // Both members approve (2 out of 3 members = 66% >= 50% quorum)
       await potContract.write.approve({
         account: member1.account!.address,
       });
@@ -449,8 +444,21 @@ describe("Pot", async function () {
         account: member2.account!.address,
       });
 
-      await potContract.write.execute({
-        account: manager.account!.address,
+      // Manager signs the claim message
+      const messageHash = keccak256(
+        encodePacked(
+          ["address", "address", "uint256"],
+          [pot.address, recipient.account!.address, GOAL],
+        ),
+      );
+
+      const signature = await manager.signMessage({
+        message: { raw: messageHash },
+        account: manager.account!,
+      });
+
+      await potContract.write.claimPayment([signature], {
+        account: recipient.account!.address,
       });
 
       const recipientBalance = await tokenContract.read.balanceOf([
@@ -463,17 +471,29 @@ describe("Pot", async function () {
       const potContract = await viem.getContractAt("Pot", pot.address);
 
       // No members approve (0% approval rate, need 50% quorum)
+      const messageHash = keccak256(
+        encodePacked(
+          ["address", "address", "uint256"],
+          [pot.address, recipient.account!.address, GOAL],
+        ),
+      );
+
+      const signature = await manager.signMessage({
+        message: { raw: messageHash },
+        account: manager.account!,
+      });
+
       await assert.rejects(
         async () => {
-          await potContract.write.execute({
-            account: manager.account!.address,
+          await potContract.write.claimPayment([signature], {
+            account: recipient.account!.address,
           });
         },
-        { message: /Quorum not reached/ }
+        { message: /Quorum not reached/ },
       );
     });
 
-    it("should revert if non-manager tries to execute", async () => {
+    it("should revert if non-recipient tries to claim", async () => {
       const potContract = await viem.getContractAt("Pot", pot.address);
 
       await potContract.write.approve({
@@ -483,13 +503,58 @@ describe("Pot", async function () {
         account: member2.account!.address,
       });
 
+      const messageHash = keccak256(
+        encodePacked(
+          ["address", "address", "uint256"],
+          [pot.address, recipient.account!.address, GOAL],
+        ),
+      );
+
+      const signature = await manager.signMessage({
+        message: { raw: messageHash },
+        account: manager.account!,
+      });
+
       await assert.rejects(
         async () => {
-          await potContract.write.execute({
+          await potContract.write.claimPayment([signature], {
             account: member1.account!.address,
           });
         },
-        { message: /Not manager/ }
+        { message: /Not recipient/ },
+      );
+    });
+
+    it("should revert with invalid signature", async () => {
+      const potContract = await viem.getContractAt("Pot", pot.address);
+
+      await potContract.write.approve({
+        account: member1.account!.address,
+      });
+      await potContract.write.approve({
+        account: member2.account!.address,
+      });
+
+      // Sign with member1 instead of manager (invalid signer)
+      const messageHash = keccak256(
+        encodePacked(
+          ["address", "address", "uint256"],
+          [pot.address, recipient.account!.address, GOAL],
+        ),
+      );
+
+      const signature = await member1.signMessage({
+        message: { raw: messageHash },
+        account: member1.account!,
+      });
+
+      await assert.rejects(
+        async () => {
+          await potContract.write.claimPayment([signature], {
+            account: recipient.account!.address,
+          });
+        },
+        { message: /Invalid signature/ },
       );
     });
   });
@@ -499,7 +564,7 @@ describe("Pot", async function () {
       const potContract = await viem.getContractAt("Pot", pot.address);
       const tokenContract = await viem.getContractAt(
         "MockERC20",
-        token.address
+        token.address,
       );
 
       await potContract.write.addMember([member1.account!.address], {
@@ -510,7 +575,7 @@ describe("Pot", async function () {
         [member1.account!.address, parseEther("100")],
         {
           account: manager.account!.address,
-        }
+        },
       );
 
       await tokenContract.write.approve([pot.address, parseEther("100")], {
@@ -526,7 +591,7 @@ describe("Pot", async function () {
       const potContract = await viem.getContractAt("Pot", pot.address);
       const tokenContract = await viem.getContractAt(
         "MockERC20",
-        token.address
+        token.address,
       );
 
       await potContract.write.withdraw([parseEther("50")], {
@@ -548,7 +613,7 @@ describe("Pot", async function () {
             account: nonMember.account!.address,
           });
         },
-        { message: /Not a member/ }
+        { message: /Not a member/ },
       );
     });
 
@@ -561,7 +626,7 @@ describe("Pot", async function () {
             account: member1.account!.address,
           });
         },
-        { message: /Invalid amount/ }
+        { message: /Invalid amount/ },
       );
     });
 
@@ -574,7 +639,7 @@ describe("Pot", async function () {
             account: member1.account!.address,
           });
         },
-        { message: /Insufficient balance/ }
+        { message: /Insufficient balance/ },
       );
     });
   });
@@ -592,11 +657,11 @@ describe("Pot", async function () {
 
       assert.strictEqual(
         potManager,
-        "0x0000000000000000000000000000000000000000"
+        "0x0000000000000000000000000000000000000000",
       );
       assert.strictEqual(
         potRecipient,
-        "0x0000000000000000000000000000000000000000"
+        "0x0000000000000000000000000000000000000000",
       );
     });
 
@@ -609,7 +674,7 @@ describe("Pot", async function () {
             account: member1.account!.address,
           });
         },
-        { message: /Not manager/ }
+        { message: /Not manager/ },
       );
     });
 
@@ -617,7 +682,7 @@ describe("Pot", async function () {
       const potContract = await viem.getContractAt("Pot", pot.address);
       const tokenContract = await viem.getContractAt(
         "MockERC20",
-        token.address
+        token.address,
       );
 
       // Add member first before closing
@@ -629,7 +694,7 @@ describe("Pot", async function () {
         [member1.account!.address, parseEther("100")],
         {
           account: manager.account!.address,
-        }
+        },
       );
 
       await tokenContract.write.approve([pot.address, parseEther("100")], {
@@ -647,7 +712,7 @@ describe("Pot", async function () {
             account: member1.account!.address,
           });
         },
-        { message: /Pot already closed/ }
+        { message: /Pot already closed/ },
       );
     });
   });

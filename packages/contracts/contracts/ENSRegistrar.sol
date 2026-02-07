@@ -71,4 +71,8 @@ contract ENSRegistrar is IENSRegistrar, ERC1155Holder {
 
         emit SubnodeRecordIssued(label, node, target, owner);
     }
+
+    function getResolver() external view returns (address) {
+        return address(resolver);
+    }
 }

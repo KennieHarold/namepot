@@ -9,4 +9,6 @@ interface IENSRegistrar {
         string[] calldata keys,
         string[] calldata values
     ) external returns (bytes32 node);
+
+    function getResolver() external view returns (address);
 }

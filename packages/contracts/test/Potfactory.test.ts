@@ -90,8 +90,8 @@ describe("PotFactory", async function () {
         factory.address,
       );
 
-      const token = await factoryContract.read.TOKEN();
-      assert.strictEqual(getAddress(token), getAddress(mockToken.address));
+      const tokenAddr = await factoryContract.read.token();
+      assert.strictEqual(getAddress(tokenAddr), getAddress(mockToken.address));
     });
 
     it("should set REGISTRAR correctly", async () => {
@@ -100,7 +100,7 @@ describe("PotFactory", async function () {
         factory.address,
       );
 
-      const registrarAddr = await factoryContract.read.REGISTRAR();
+      const registrarAddr = await factoryContract.read.registrar();
       assert.strictEqual(
         getAddress(registrarAddr),
         getAddress(registrar.address),

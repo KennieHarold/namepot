@@ -9,14 +9,14 @@ import "./interfaces/IPot.sol";
 
 contract PotFactory {
     address public immutable POT_BEACON;
-    address public immutable TOKEN;
+    address public immutable token;
 
-    IENSRegistrar public immutable REGISTRAR;
+    IENSRegistrar public immutable registrar;
 
-    constructor(address beacon, address _registrar, address token) {
+    constructor(address beacon, address _registrar, address _token) {
         POT_BEACON = beacon;
-        REGISTRAR = IENSRegistrar(_registrar);
-        TOKEN = token;
+        registrar = IENSRegistrar(_registrar);
+        token = _token;
     }
 
     event PotCreated(bytes32 indexed hash, address indexed potAddress);
@@ -45,10 +45,12 @@ contract PotFactory {
         (string[] memory keys, string[] memory values) = _generatePotMetadata(
             goal,
             deadline,
-            quorum
+            quorum,
+            manager,
+            recipient
         );
 
-        REGISTRAR.issueSubnodeRecord(
+        bytes32 node = registrar.issueSubnodeRecord(
             label,
             potAddress,
             msg.sender,
@@ -57,12 +59,14 @@ contract PotFactory {
         );
 
         IPot(potAddress).initialize(
+            node,
+            registrar.getResolver(),
             goal,
             deadline,
             quorum,
             manager,
             recipient,
-            TOKEN
+            token
         );
 
         emit PotCreated(hash, potAddress);
@@ -81,10 +85,12 @@ contract PotFactory {
     function _generatePotMetadata(
         uint256 goal,
         uint128 deadline,
-        uint16 quorum
+        uint16 quorum,
+        address manager,
+        address recipient
     ) internal pure returns (string[] memory keys, string[] memory values) {
-        keys = new string[](4);
-        values = new string[](4);
+        keys = new string[](6);
+        values = new string[](6);
 
         keys[0] = "pot:version";
         values[0] = "1";
@@ -97,5 +103,11 @@ contract PotFactory {
 
         keys[3] = "pot:quorum";
         values[3] = Strings.toString(quorum);
+
+        keys[4] = "pot:manager";
+        values[4] = Strings.toHexString(manager);
+
+        keys[5] = "pot:recipient";
+        values[5] = Strings.toHexString(recipient);
     }
 }
