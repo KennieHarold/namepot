@@ -7,11 +7,12 @@ import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Holder.sol";
 
 import "./interfaces/IPot.sol";
 import "./interfaces/IResolver.sol";
 
-contract Pot is IPot, Initializable {
+contract Pot is IPot, Initializable, ERC1155Holder {
     using SafeERC20 for IERC20;
     using ECDSA for bytes32;
     using MessageHashUtils for bytes32;
@@ -182,7 +183,6 @@ contract Pot is IPot, Initializable {
     }
 
     function closePot() external onlyManager onlyActivePot {
-        recipient = address(0);
         manager = address(0);
 
         emit PotClosed();
