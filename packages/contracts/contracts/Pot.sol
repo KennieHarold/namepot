@@ -83,10 +83,7 @@ contract Pot is IPot, Initializable, ERC1155Holder {
     }
 
     modifier onlyActivePot() {
-        require(
-            manager != address(0) && recipient != address(0),
-            "Pot already closed"
-        );
+        require(manager != address(0), "Pot already closed");
         _;
     }
 
