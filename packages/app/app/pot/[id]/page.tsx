@@ -438,12 +438,10 @@ export default function PotPage() {
   const isBeforeDeadline = timeLeft > 0;
   const progress = goalNum > 0 ? Math.min((raisedNum / goalNum) * 100, 100) : 0;
   const quorumLabel = `${(quorum ?? 0) / 10}%`;
-  const approvalsNeeded =
-    memberCount && quorum ? Math.ceil((memberCount * quorum) / 1000) : 0;
-  const approvalsProgress =
-    approvalsNeeded > 0
-      ? Math.min(((approvals ?? 0) / approvalsNeeded) * 100, 100)
-      : 0;
+  const approvalsProgress = Math.min(
+    ((approvals ?? 0) / (memberCount || 1)) * 100,
+    100,
+  );
 
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
@@ -774,7 +772,7 @@ export default function PotPage() {
                   Approvals
                 </Typography>
                 <Typography variant="body2" fontWeight={600}>
-                  {approvals ?? 0} / {approvalsNeeded} members ({quorumLabel}{" "}
+                  {approvals ?? 0} / {memberCount} members ({quorumLabel}{" "}
                   quorum)
                 </Typography>
               </Box>
@@ -788,7 +786,7 @@ export default function PotPage() {
                   "& .MuiLinearProgress-bar": {
                     borderRadius: 6,
                     background:
-                      approvalsProgress >= 100
+                      approvalsProgress >= (quorum ? quorum / 10 : 100)
                         ? "linear-gradient(135deg, #10b981 0%, #059669 100%)"
                         : "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
                   },
