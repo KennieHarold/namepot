@@ -32,7 +32,6 @@ import TextField from "@mui/material/TextField";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
-import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
 import BoltIcon from "@mui/icons-material/Bolt";
 import CallMadeIcon from "@mui/icons-material/CallMade";
@@ -83,6 +82,8 @@ export default function PotPage() {
     data: approvalHash,
   } = useWriteContract();
   const { mutateAsync: depositAsync, isPending: isDepositing } =
+    useWriteContract();
+  const { mutateAsync: approvePotAsync, isPending: isApprovingPot } =
     useWriteContract();
 
   const { isSuccess: isApprovalSuccess, isPending: isWaitingApproval } =
@@ -154,6 +155,35 @@ export default function PotPage() {
     } catch (error: unknown) {
       enqueueSnackbar({
         message: `Error approving tokens: ${error}`,
+        variant: "error",
+        anchorOrigin: { vertical: "top", horizontal: "right" },
+      });
+    }
+  };
+
+  const handleApprovePot = async () => {
+    try {
+      if (!address) {
+        throw new Error("Wallet not connected");
+      }
+      if (!potAddress) {
+        throw new Error("Pot address not found");
+      }
+
+      await approvePotAsync({
+        address: potAddress as Address,
+        abi: POT,
+        functionName: "approve",
+      });
+
+      enqueueSnackbar({
+        message: "Pot approval submitted!",
+        variant: "success",
+        anchorOrigin: { vertical: "top", horizontal: "right" },
+      });
+    } catch (error: unknown) {
+      enqueueSnackbar({
+        message: `Error approving pot: ${error}`,
         variant: "error",
         anchorOrigin: { vertical: "top", horizontal: "right" },
       });
@@ -263,6 +293,12 @@ export default function PotPage() {
   const isBeforeDeadline = timeLeft > 0;
   const progress = goalNum > 0 ? Math.min((raisedNum / goalNum) * 100, 100) : 0;
   const quorumLabel = `${(quorum ?? 0) / 10}%`;
+  const approvalsNeeded =
+    memberCount && quorum ? Math.ceil((memberCount * quorum) / 1000) : 0;
+  const approvalsProgress =
+    approvalsNeeded > 0
+      ? Math.min(((approvals ?? 0) / approvalsNeeded) * 100, 100)
+      : 0;
 
   return (
     <Container maxWidth="md" sx={{ py: 4 }}>
@@ -529,13 +565,55 @@ export default function PotPage() {
               Governance
             </Typography>
 
+            <Box sx={{ mb: 3 }}>
+              <Box
+                sx={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  mb: 1,
+                }}
+              >
+                <Typography variant="body2" color="text.secondary">
+                  Approvals
+                </Typography>
+                <Typography variant="body2" fontWeight={600}>
+                  {approvals ?? 0} / {approvalsNeeded} members ({quorumLabel}{" "}
+                  quorum)
+                </Typography>
+              </Box>
+              <LinearProgress
+                variant="determinate"
+                value={approvalsProgress}
+                sx={{
+                  height: 12,
+                  borderRadius: 6,
+                  bgcolor: "grey.100",
+                  "& .MuiLinearProgress-bar": {
+                    borderRadius: 6,
+                    background:
+                      approvalsProgress >= 100
+                        ? "linear-gradient(135deg, #10b981 0%, #059669 100%)"
+                        : "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
+                  },
+                }}
+              />
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                sx={{ mt: 0.5, display: "block" }}
+              >
+                {approvalsProgress.toFixed(1)}% of quorum reached
+              </Typography>
+            </Box>
+
             <Stack direction="row" spacing={2}>
               {isMember && (
                 <Button
                   variant="contained"
                   color="success"
-                  startIcon={<CheckCircleIcon />}
-                  onClick={() => console.log("Approve stub")}
+                  onClick={handleApprovePot}
+                  disabled={isApprovingPot}
+                  loading={isApprovingPot}
                   fullWidth
                 >
                   Approve
