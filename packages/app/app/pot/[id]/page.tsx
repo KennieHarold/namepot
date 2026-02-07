@@ -3,9 +3,17 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { useEnsAddress } from "wagmi";
+import {
+  useEnsAddress,
+  useWriteContract,
+  useConnection,
+  useWaitForTransactionReceipt,
+} from "wagmi";
 import { usePotDetails } from "@/hooks/usePotDetails";
-import { formatUnits } from "viem";
+import { useAllowance } from "@/hooks/useAllowance";
+import { Address, erc20Abi, formatUnits, isAddress, parseUnits } from "viem";
+import { enqueueSnackbar } from "notistack";
+import { POT } from "@/lib/abis";
 
 import Container from "@mui/material/Container";
 import Box from "@mui/material/Box";
@@ -64,7 +72,125 @@ export default function PotPage() {
     isManager,
     isLoading: isDetailsLoading,
   } = usePotDetails(ensName, potAddress ?? undefined);
+  const { allowance, refetchAllowance } = useAllowance(potAddress ?? undefined);
   const isMember = true; // TODO
+
+  const { address } = useConnection();
+  const { mutateAsync, isPending: isAddingMember } = useWriteContract();
+  const {
+    mutateAsync: approveAsync,
+    isPending: isApproving,
+    data: approvalHash,
+  } = useWriteContract();
+  const { mutateAsync: depositAsync, isPending: isDepositing } =
+    useWriteContract();
+
+  const { isSuccess: isApprovalSuccess, isPending: isWaitingApproval } =
+    useWaitForTransactionReceipt({
+      hash: approvalHash,
+      query: { enabled: !!approvalHash },
+    });
+
+  const handleAddMember = async () => {
+    try {
+      if (!address) {
+        throw new Error("Wallet not connected");
+      }
+      if (!potAddress) {
+        throw new Error("Pot address not found");
+      }
+      if (!isAddress(newMemberAddress)) {
+        enqueueSnackbar({
+          message: "Invalid Ethereum address",
+          variant: "error",
+          anchorOrigin: { vertical: "top", horizontal: "right" },
+        });
+        return;
+      }
+
+      await mutateAsync({
+        address: potAddress as Address,
+        abi: POT,
+        functionName: "addMember",
+        args: [newMemberAddress as Address],
+      });
+
+      setNewMemberAddress("");
+      enqueueSnackbar({
+        message: "Member added successfully!",
+        variant: "success",
+        anchorOrigin: { vertical: "top", horizontal: "right" },
+      });
+    } catch (error: unknown) {
+      enqueueSnackbar({
+        message: `Error adding member: ${error}`,
+        variant: "error",
+        anchorOrigin: { vertical: "top", horizontal: "right" },
+      });
+    }
+  };
+
+  const tokenAddress = process.env.NEXT_PUBLIC_CURRENCY_TOKEN as Address;
+
+  const handleApprove = async () => {
+    try {
+      if (!address) throw new Error("Wallet not connected");
+      if (!potAddress) throw new Error("Pot address not found");
+
+      const amount = parseUnits(depositAmount, 18);
+      await approveAsync({
+        address: tokenAddress,
+        abi: erc20Abi,
+        functionName: "approve",
+        args: [potAddress as Address, amount],
+      });
+
+      await refetchAllowance();
+      enqueueSnackbar({
+        message: "Token approval successful!",
+        variant: "success",
+        anchorOrigin: { vertical: "top", horizontal: "right" },
+      });
+    } catch (error: unknown) {
+      enqueueSnackbar({
+        message: `Error approving tokens: ${error}`,
+        variant: "error",
+        anchorOrigin: { vertical: "top", horizontal: "right" },
+      });
+    }
+  };
+
+  const handleDeposit = async () => {
+    try {
+      if (!address) {
+        throw new Error("Wallet not connected");
+      }
+      if (!potAddress) {
+        throw new Error("Pot address not found");
+      }
+
+      const amount = parseUnits(depositAmount, 18);
+      await depositAsync({
+        address: potAddress as Address,
+        abi: POT,
+        functionName: "deposit",
+        args: [amount],
+      });
+
+      setDepositAmount("");
+      enqueueSnackbar({
+        message: "Deposit successful!",
+        variant: "success",
+        anchorOrigin: { vertical: "top", horizontal: "right" },
+      });
+    } catch (error: unknown) {
+      enqueueSnackbar({
+        message: `Error depositing: ${error}`,
+        variant: "error",
+        anchorOrigin: { vertical: "top", horizontal: "right" },
+      });
+    }
+  };
 
   const [now, setNow] = useState(0);
   const [newMemberAddress, setNewMemberAddress] = useState("");
@@ -81,6 +207,12 @@ export default function PotPage() {
       clearInterval(interval);
     };
   }, []);
+
+  useEffect(() => {
+    if (isApprovalSuccess) {
+      refetchAllowance();
+    }
+  }, [isApprovalSuccess, refetchAllowance]);
 
   if (isPotAddressLoading) {
     return (
@@ -274,10 +406,9 @@ export default function PotPage() {
                 <Button
                   variant="outlined"
                   startIcon={<PersonAddIcon />}
-                  onClick={() => {
-                    console.log("Add member stub:", newMemberAddress);
-                    setNewMemberAddress("");
-                  }}
+                  onClick={handleAddMember}
+                  disabled={isAddingMember || !newMemberAddress}
+                  loading={isAddingMember}
                 >
                   Add Member
                 </Button>
@@ -313,24 +444,52 @@ export default function PotPage() {
                   value={depositAmount}
                   onChange={(e) => setDepositAmount(e.target.value)}
                   slotProps={{ htmlInput: { min: 0, step: "any" } }}
+                  onWheel={(e) => (e.target as HTMLInputElement).blur()}
                   fullWidth
                 />
-                <Button
-                  variant="contained"
-                  startIcon={<AccountBalanceWalletIcon />}
-                  onClick={() => console.log("Deposit stub:", depositAmount)}
-                  disabled={!depositAmount || Number(depositAmount) <= 0}
-                  sx={{
-                    background:
-                      "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
-                    "&:hover": {
+                {depositAmount &&
+                Number(depositAmount) > 0 &&
+                allowance < parseUnits(depositAmount, 18) ? (
+                  <Button
+                    variant="contained"
+                    startIcon={<AccountBalanceWalletIcon />}
+                    onClick={handleApprove}
+                    disabled={isApproving || isWaitingApproval}
+                    loading={isApproving || isWaitingApproval}
+                    sx={{
                       background:
-                        "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
-                    },
-                  }}
-                >
-                  Deposit
-                </Button>
+                        "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+                      "&:hover": {
+                        background:
+                          "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
+                      },
+                    }}
+                  >
+                    Approve Deposit
+                  </Button>
+                ) : (
+                  <Button
+                    variant="contained"
+                    startIcon={<AccountBalanceWalletIcon />}
+                    onClick={handleDeposit}
+                    disabled={
+                      !depositAmount ||
+                      Number(depositAmount) <= 0 ||
+                      isDepositing
+                    }
+                    loading={isDepositing}
+                    sx={{
+                      background:
+                        "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
+                      "&:hover": {
+                        background:
+                          "linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)",
+                      },
+                    }}
+                  >
+                    Deposit
+                  </Button>
+                )}
               </Stack>
             )}
 
@@ -345,6 +504,7 @@ export default function PotPage() {
                   value={withdrawAmount}
                   onChange={(e) => setWithdrawAmount(e.target.value)}
                   slotProps={{ htmlInput: { min: 0, step: "any" } }}
+                  onWheel={(e) => (e.target as HTMLInputElement).blur()}
                   fullWidth
                 />
                 <Button
