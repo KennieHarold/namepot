@@ -10,6 +10,7 @@ import {
   useWaitForTransactionReceipt,
 } from "wagmi";
 import { usePotDetails } from "@/hooks/usePotDetails";
+import { usePotMembers } from "@/hooks/usePotMembers";
 import { useAllowance } from "@/hooks/useAllowance";
 import { Address, erc20Abi, formatUnits, isAddress, parseUnits } from "viem";
 import { enqueueSnackbar } from "notistack";
@@ -26,6 +27,12 @@ import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import Divider from "@mui/material/Divider";
 import Stack from "@mui/material/Stack";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableContainer from "@mui/material/TableContainer";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
 import TextField from "@mui/material/TextField";
@@ -72,9 +79,15 @@ export default function PotPage() {
     isLoading: isDetailsLoading,
   } = usePotDetails(ensName);
   const { allowance, refetchAllowance } = useAllowance(potAddress ?? undefined);
-  const isMember = true; // TODO
+  const { data: members = [], isLoading: isMembersLoading } = usePotMembers(
+    ensName,
+    memberCount,
+  );
 
   const { address } = useConnection();
+  const isMember = members.some(
+    (member) => member.address.toLowerCase() === address?.toLowerCase(),
+  );
   const { mutateAsync, isPending: isAddingMember } = useWriteContract();
   const {
     mutateAsync: approveAsync,
@@ -446,9 +459,48 @@ export default function PotPage() {
                   disabled={isAddingMember || !newMemberAddress}
                   loading={isAddingMember}
                 >
-                  Add Member
+                  Invite
                 </Button>
               </Box>
+
+              <Divider />
+
+              {isMembersLoading ? (
+                <Box sx={{ display: "flex", justifyContent: "center", py: 2 }}>
+                  <CircularProgress size={24} />
+                </Box>
+              ) : members.length > 0 ? (
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>#</TableCell>
+                        <TableCell>Wallet ID</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {members.map((member, index) => (
+                        <TableRow key={member.address}>
+                          <TableCell>{index + 1}</TableCell>
+                          <TableCell>
+                            {member?.ensName
+                              ? member.ensName
+                              : truncateAddress(member.address)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              ) : (
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ textAlign: "center", py: 1 }}
+                >
+                  No members yet
+                </Typography>
+              )}
             </Stack>
           </CardContent>
         </Card>
@@ -490,8 +542,12 @@ export default function PotPage() {
                     variant="contained"
                     startIcon={<AccountBalanceWalletIcon />}
                     onClick={handleApprove}
-                    disabled={isApproving || isWaitingApproval}
-                    loading={isApproving || isWaitingApproval}
+                    disabled={
+                      isApproving || (isWaitingApproval && !!approvalHash)
+                    }
+                    loading={
+                      isApproving || (isWaitingApproval && !!approvalHash)
+                    }
                     sx={{
                       background:
                         "linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)",
