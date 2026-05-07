@@ -78,7 +78,7 @@ contract Pot is IPot, Initializable, ERC1155Holder {
     }
 
     modifier onlyManager() {
-        require(msg.sender == manager, "Not manager");
+        require(msg.sender == manager, "Not a manager");
         _;
     }
 
